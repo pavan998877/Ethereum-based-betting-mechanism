@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract BettingGame {
+
+    address public manager;
+    uint public betAmount;
+    address[] public players;
+    mapping(address => bool) public hasBet;
+    event BetPlaced(address player);
+
+constructor(uint _betAmount) {
+        manager = msg.sender;
+        betAmount = _betAmount;
+    }
+
+    // Allows a player to place a bet
+    function placeBet() public payable {
+        require(msg.value == betAmount, "You must bet exactly the fixed amount.");
+        require(!hasBet[msg.sender], "You have already placed your bet.");
+        
+        players.push(msg.sender);
+        hasBet[msg.sender] = true;
+
+        emit BetPlaced(msg.sender);
+    }
+
+    // Allows the manager to choose the winner randomly
+    function chooseWinner() public onlyManager {
+        require(players.length > 0, "No players have placed bets.");
+        
+        uint randomIndex = uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp, players))) % players.length;
+        address winner = players[randomIndex];
+        
+        payable(winner).transfer(address(this).balance);
+
+        resetGame();
+    }
+    function resetGame() internal {
+        delete players;
+        for (uint i = 0; i < players.length; i++) {
+            hasBet[players[i]] = false;
+        }
+    }
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only the manager can choose the winner.");
+        _;
+    }
+    function getPlayers() public view returns (address[] memory) {
+        return players;
+    }
+
+    // Returns the current balance of the contract
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}
